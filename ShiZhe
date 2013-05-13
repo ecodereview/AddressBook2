@@ -1,0 +1,410 @@
+一、注意：由于程序尚不完善，请不要随便更改json.txt里的内容。如果文件格式错误，请复制{ "entries": {"hanmeimei":{ "age":26, "mobile":"13700000001", "address":"Earth somewhere else" },"lilei":{ "age":27, "mobile":"13700000000", "address":"Earth somewhere" }} }
+    到json.txt文件中。
+
+
+二、程序效果概述：
+
+    由于未接触过JSON格式，对java的使用也不够熟练，边学边写，因此程序不是十分健壮。
+
+　　实现了 ls, cd, cat, add, remove, !help, !quit命令的功能，支持相应json文本文件的读和写。
+
+　　处理的特殊情况：命令不正确的处理，cat不存在的记录，add已存在的记录，remove不存在的记录
+
+　　尚未处理的特殊情况：读入的文件格式不匹配时，程序出错；为新人输入年龄信息时，若键盘输入的不是数值信息时，程序出错。
+
+
+三、测试用例:
+1、json.txt文件内容的格式不匹配：未对此情况做处理，程序出错。  		         		 出错
+
+2、json.txt文件内容的格式匹配：正确获取文件内容信息
+
+3、命令输入错误：提示没有此命令操作符
+
+4、ls命令正确输入：正确输出该目录下所有成员的key值
+
+5、cd命令正确输入：正确进入entries目录
+
+6、cat命令不完整：提示此命令不完整
+
+7、cat命令正确输入：打印出相应成员的信息
+
+8、cat命令希望获取到不存在的成员：提示不存在该成员
+
+9、add命令正确输入，成员信息正确输入：提示输入成员信息，正确获取成员信息，并按格式更新json.txt
+
+10、add命令正确输入，成员信息不正确输入：当给age（整型）记录输入非数值信息时，程序出错     		出错
+
+11、add命令正确输入，添加已存在的成员：提示该成员已经存在
+
+11、remove命令正确输入，删除存在的成员：正确删除该成员，并按格式更新json.txt
+
+12、remove命令正确输入，删除不存在的成员：提示不存在该成员
+
+/*
+ * Author: Shi Zhe     Time: 2013-5-12
+ * Email: ai__rain@shu.edu.cn
+ * 
+ * 
+ */
+
+
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Map.Entry;
+import java.util.Scanner;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import net.sf.json.util.JSONUtils;
+import java.util.Iterator;
+import org.apache.commons.beanutils.PropertyUtils;
+import java.io.File;
+import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.FileWriter;
+
+
+
+class Person {
+  public int age;
+	public String mobile;
+	public String address;	
+	
+	Person()
+	{
+		age=0;
+		mobile="";
+		address="";
+
+	}
+	
+	public String toString()			//返回一个人的信息，用于屏幕输出与文件输出
+	{
+		return "{ \"age\":"+age+", \"mobile\":"+"\""+mobile+"\""+", \"address\":"+"\""+address+"\" }";
+	}
+	
+}
+
+class Entries{
+	
+	public Map<String, Person> personmap;
+	public String entry_name;
+	public String entry_string_info;			
+	
+	Entries()
+	{
+		personmap=new HashMap<String,Person>();
+		entry_name="";
+		entry_string_info="";
+	}
+	
+	
+	public void getPersonMap()
+	{
+		Person person;
+		JSONObject jsonObject = JSONObject.fromObject(entry_string_info);
+		Iterator  keyIter = jsonObject.keys();
+		String personkey="";
+		String personinfo="";
+		JSONObject personjsonObject;
+		
+
+        while( keyIter.hasNext())
+        {
+            personkey = (String)keyIter.next();
+            personinfo = jsonObject.getString(personkey);
+            
+           // System.out.println(personkey+"的值是："+personinfo+"		"+jsonObject.size());
+            
+            personjsonObject = JSONObject.fromObject(personinfo);
+            
+            person = new Person();
+            person.age = personjsonObject.getInt("age");
+            person.mobile = personjsonObject.getString("mobile");
+            person.address = personjsonObject.getString("address");            
+            
+            personmap.put(personkey, person);  
+            //System.out.println("这次put进去的person是："+person.age+" "+person.mobile+" "+person.address);
+           // System.out.println(personkey+"的值是："+person.age+"		"+personjsonObject.size());   
+        }    
+        
+        
+        return;		
+	}
+	
+}
+
+
+
+class JsonBegin{
+	
+	Entries entry;
+	
+	JsonBegin()
+	{
+		entry = new Entries();
+	}
+	
+	public void getEntriesMap(String jsonStr)		//从文件中提取信息
+	{
+		
+		JSONObject jsonObject = JSONObject.fromObject(jsonStr);
+		Iterator  keyIter = jsonObject.keys();
+	
+	    entry.entry_name = (String)keyIter.next();
+	    entry.entry_string_info = jsonObject.getString(entry.entry_name);
+	    entry.getPersonMap();
+            
+	    //System.out.println(entry.entry_name+"的值是："+entry.entry_string_info+"		"+jsonObject.size());
+	             
+	    return;		
+	
+	}
+	
+	public void jsonFileOut(File jsonfile)			//文件输出
+	{
+		try{
+			
+			FileWriter filewriter = new FileWriter(jsonfile);
+			Set<String> personkey =new HashSet<String>();
+			personkey = entry.personmap.keySet();
+			Iterator setIter = personkey.iterator();
+			String personname = "";						//每一个人的key			
+			String personout = "";						//所有人的记录
+			String fileout = "";						//最终输出的记录
+			int comma = 1;								//用于中间插入（人数-1）个逗号
+			
+			while(setIter.hasNext())
+			{
+				personname = (String)setIter.next();
+				if(comma==1)
+				{
+					comma=0;
+					
+				}
+				else
+				{
+					personout = personout+",";
+				}
+				personout = personout+"\""+personname+"\":"+entry.personmap.get(personname).toString();
+				 
+			}
+			
+			
+			//System.out.println(personout);
+			
+			fileout = "{ \""+entry.entry_name+"\": {"+personout+"} }";
+			
+			filewriter.write(fileout);
+			filewriter.close();
+			
+		}catch(Exception e){
+            e.printStackTrace();
+		 }
+	}
+}
+
+
+public class JsonUtil {
+	
+	
+	 public static void main(String []args)
+	{
+		 File jsonfile = new File("json.txt");
+		 FileReader filereader;
+		 BufferedReader bufferedreader;
+		 String readJsonStr="";
+		 
+		 //读取文件信息
+		 try{
+			 if(!jsonfile.exists())
+			 {
+				 jsonfile.createNewFile();
+			 }
+			 
+			 filereader = new FileReader(jsonfile);
+			 bufferedreader = new BufferedReader(filereader);
+			 readJsonStr=bufferedreader.readLine();
+			 
+			 bufferedreader.close();
+			 filereader.close();
+			 
+			 
+		 }catch(Exception e){
+             e.printStackTrace();
+		 }
+		 
+		 
+ 
+		// System.out.println(readJsonStr);
+		 
+		// String jsonStr="{\"entries\": {\"lilei\" : {\"age\": 27,\"mobile\" : \"13700000000\",\"address\" : \"Earth somewhere\"}, \"hanmeimei\" : {\"age\": 26,\"mobile\" : \"13700000001\",\"address\" : \"Earth somewhere else\"}}}";
+		
+		 //System.out.println(jsonStr);
+		 JsonBegin jsonbegin =new JsonBegin();
+		 jsonbegin.getEntriesMap(readJsonStr);
+		 //jsonbegin.getEntriesMap(jsonStr);
+		 
+		 JSONObject jsonOut;
+		 Set<String> recordname =new HashSet<String>();
+		 Iterator setIter;
+		 boolean whetherroot = true;
+		 
+		 
+		 Scanner keyboardin = new Scanner(System.in);    
+		 String cmd="";		//命令
+		 String subcmd1="";	//二元命令的前半部分
+		 String subcmd2="";	//二元命令的后半部分
+		 int cmdsize=0;		//命令长度
+		 String helpinfo = "ls , cd , cat , add , remove , !quit";
+		 String help = "!help";
+		 String quit = "!quit";
+		 String ls = "ls";
+		 String cd = "cd";
+		 String cat = "cat";
+		 String add = "add";
+		 String remove = "remove";
+		 
+		 //输出personmap试试
+		/* Iterator mapIter = jsonbegin.entry.personmap.keySet().iterator(); 
+		 while (mapIter.hasNext()){ 
+			    String testkey; 
+			    testkey=(String)mapIter.next(); 
+			    System.out.println(testkey+" "+jsonbegin.entry.personmap.get(testkey).address+" "+jsonbegin.entry.personmap.size());
+			   } */
+		 
+		 while(true)
+		 {
+			 System.out.print("Json> ");
+			 cmd=keyboardin.nextLine();
+			 if(cmd.equals(quit))			//!quit
+			 {
+				 break;
+			 }
+			 else if(cmd.equals(help))		//!help
+			 {
+				 System.out.println(helpinfo);
+			 }
+			 else if(cmd.equals(ls))		//ls
+			 {
+				 
+				 if(whetherroot)
+				 {
+					 System.out.println(jsonbegin.entry.entry_name);
+				 }
+				 else
+				 {
+					 recordname = jsonbegin.entry.personmap.keySet();
+					 setIter = recordname.iterator();
+					 while(setIter.hasNext())
+					 {
+						 System.out.print(setIter.next()+" ");
+					 }
+					 System.out.println("");
+				 }
+					 
+			 }
+			 else if(cmd.startsWith(cd))		//cd
+			 {
+				 if(cmd.equals(cd)||cmd.equals(cd+" "))
+				 {
+					 System.out.println("Command cd is not completed.");
+				 }
+				 else
+				 {
+					 subcmd2= cmd.substring(3,cmd.length());
+					 if(subcmd2.equals(jsonbegin.entry.entry_name))
+					 {
+						 whetherroot=false;
+					 }
+					 else
+					 {
+						 System.out.println(subcmd2+" does not exist.");
+					 }
+				 }
+				 
+			 }
+			 else if(cmd.startsWith(cat)&&!whetherroot)		//cat
+			 {
+				 if(cmd.equals(cat)||cmd.equals(cat+" "))
+				 {
+					 System.out.println("Command cat is not completed.");
+				 }
+				 else
+				 {
+					 subcmd1= cmd.substring(0, 3);
+					 subcmd2= cmd.substring(4,cmd.length());
+					 
+					 if(!jsonbegin.entry.personmap.containsKey(subcmd2))		//判断是否存在这个key
+					 {
+						 System.out.println("Error: "+subcmd2+" does not exist");
+						 continue;
+					 }
+					 System.out.println("\""+subcmd2+"\":"+jsonbegin.entry.personmap.get(subcmd2).toString());
+					 
+				 }
+			 }
+			 else if(cmd.equals(add)&&!whetherroot)		//add
+			 {
+				 Person person = new Person();
+				 String personname = "";
+				 
+				 Scanner addin = new Scanner(System.in);
+				 System.out.print("name: ");
+				 personname=addin.next();
+				 
+				 if(jsonbegin.entry.personmap.containsKey(personname))		//判断是否已经存在这个key
+				 {
+					 System.out.println("Warning: "+personname+" already exists");
+					 continue;
+				 }
+				 
+				 System.out.print("age: ");
+				 person.age=addin.nextInt();
+				 System.out.print("mobile: ");
+				 person.mobile=addin.next();
+				 System.out.print("address: ");
+				 person.address=addin.next();
+				 jsonbegin.entry.personmap.put(personname, person);
+				 
+				 System.out.println("address entry added");
+				 
+				 //将新的JSON写入文件
+				 jsonbegin.jsonFileOut(jsonfile);
+			 }
+			 else if(cmd.equals(remove)&&!whetherroot)		//remove
+			 {			 
+				 Scanner removein = new Scanner(System.in);
+				 String personname = "";
+				 
+				 System.out.print("please give the name: ");
+				 personname = removein.next();
+				 if(!jsonbegin.entry.personmap.containsKey(personname))		//判断是否存在这个key
+				 {
+					 System.out.println("Error: "+personname+" does not exist");
+					 continue;
+				 }
+				 
+				 jsonbegin.entry.personmap.remove(personname);
+				 
+				 System.out.println(personname+" was deleted from JSON");
+				 
+				 //将新的JSON写入文件
+				 jsonbegin.jsonFileOut(jsonfile);
+			 }
+			 else		//default
+			 {
+				 System.out.println("Error: "+cmd+" is not a command.\nInput !help for help.");
+			 }
+			 
+		 }
+		 
+	}
+}
